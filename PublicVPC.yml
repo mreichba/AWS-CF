@@ -1,0 +1,111 @@
+Description: vpc template
+Parameters:
+  CidrBlock:
+    Type: String
+  EnableDnsHostnames:
+    Type: String
+  EnableDnsSupport:
+    Type: String
+  PubCidr:
+    Type: String
+  PrivCidr:
+    Type: String
+  AZ:
+    Type: String
+  MapPublicIpOnLaunch:
+    Type: String
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrBlock
+      EnableDnsHostnames: !Ref EnableDnsHostnames
+      EnableDnsSupport: !Ref EnableDnsSupport
+      Tags:
+        - Key: Name
+          Value: "MyFirstCloudFormation"
+        - Key: Description
+          Value: BuildingNewVPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+        CidrBlock: !Ref PubCidr
+        AvailabilityZone: !Select [0, !Split [ ",", !Ref AZ ] ]
+        MapPublicIpOnLaunch: !Ref MapPublicIpOnLaunch
+        VpcId: !Ref VPC
+        Tags:
+          - Key: Name
+            Value: "Public"
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+        CidrBlock: !Ref PrivCidr
+        AvailabilityZone: !Select [1, !Split [ ",", !Ref AZ ] ]
+        VpcId: !Ref VPC
+        Tags:
+          - Key: Name
+            Value: "Private"
+
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+        Tags:
+          - Key: Name
+            Value: "IGW"
+          - Key: Description
+            Value: AllowsInternetAccess
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MyInternetGateway
+      VpcId: !Ref VPC
+
+  PubRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+        VpcId: !Ref VPC
+        Tags:
+          - Key: Name
+            Value: "MyPublicRouteTable"
+          - Key: Description
+            Value: "ToProperlyRoutePublicTraffic"
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PubRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PubRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+      RouteTableId: !Ref PubRouteTable
+
+  PrivRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+        VpcId: !Ref VPC
+        Tags:
+          - Key: Name
+            Value: "MyPrivateRouteTable"
+          - Key: Description
+            Value: "ToProperlyRoutePrivateTraffic"
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+  PrivRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+      RouteTableId: !Ref PrivRouteTable
